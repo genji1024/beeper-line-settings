@@ -1,0 +1,21 @@
+# A LINE bridge for a Matrix homeserver: https://github.com/beeper/line,
+# built from source. Run ./setup.sh first (README.md).
+services:
+  beeper-line:
+    build: https://github.com/beeper/line.git#${BEEPER_LINE_REF:-main}
+    image: beeper-line:local
+    restart: unless-stopped
+    environment:
+      # The image's entrypoint runs the bridge as this user and gives it
+      # data/; setup.sh picks values that keep data/ yours.
+      UID: ${BRIDGE_UID:-1337}
+      GID: ${BRIDGE_GID:-1337}
+    volumes:
+      - ./data:/data
+    networks:
+      - homeserver
+
+networks:
+  homeserver:
+    external: true
+    name: ${HOMESERVER_NETWORK:?set HOMESERVER_NETWORK in .env}
