@@ -54,6 +54,16 @@ if [ -z "${BRIDGE_UID:-}" ] || [ -z "${BRIDGE_GID:-}" ]; then
 fi
 mkdir -p data
 
+# Upstream's Dockerfile needs BuildKit, which Compose uses only through the
+# buildx plugin; without it Compose falls back to the legacy builder, which
+# fails on RUN --mount.
+docker buildx version >/dev/null 2>&1 || {
+  echo "error: the Docker buildx plugin is missing; building the bridge needs it" >&2
+  echo "  install it (Arch: docker-buildx; Debian/Ubuntu: docker-buildx-plugin)," >&2
+  echo "  check with: docker buildx version, then run ./setup.sh again" >&2
+  exit 1
+}
+
 echo "==> building the bridge"
 docker compose build
 
