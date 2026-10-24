@@ -3,39 +3,32 @@
 # appservice registration and start the bridge. Safe to re-run: the
 # settings below are applied again, everything else in config.yaml is kept.
 #
-#   cp .env.example .env && $EDITOR .env
-#   ./setup.sh
+#   ./setup.sh               # asks for what .env lacks (configure.sh)
+#   ./setup.sh --configure   # asks for everything again
 #
 # Run as the user that runs `docker compose`; no sudo.
 set -eu
 cd "$(dirname "$0")"
 
-# KEY=VALUE lines without shell evaluation, as docker compose reads them.
-load_env() {
-  [ -f "$1" ] || { echo "error: $1 not found (cp .env.example .env)" >&2; exit 1; }
-  while IFS= read -r line || [ -n "$line" ]; do
-    case "$line" in ''|'#'*) continue ;; esac
-    key="${line%%=*}"; val="${line#*=}"
-    case "$key" in *[!A-Za-z0-9_]*) continue ;; esac
-    case "$val" in
-      \"*\") val="${val#\"}"; val="${val%\"}" ;;
-      \'*\') val="${val#\'}"; val="${val%\'}" ;;
-    esac
-    export "$key=$val"
-  done < "$1"
-}
-set_env() {
-  if grep -q "^$1=" .env; then
-    sed -i "s|^$1=.*|$1=$2|" .env
-  else
-    printf '%s=%s\n' "$1" "$2" >> .env
-  fi
-}
-load_env .env
+. ./lib.sh
 
-: "${SERVER_NAME:?SERVER_NAME must be set in .env}"
-: "${HOMESERVER_NETWORK:?HOMESERVER_NETWORK must be set in .env}"
-: "${BRIDGE_ADMIN:?BRIDGE_ADMIN must be set in .env}"
+# Ask for the settings when .env is missing or lacks one (or with
+# --configure); without a terminal, .env must be complete.
+case "${1:-}" in
+  --configure) ./configure.sh ;;
+  '') ;;
+  *) echo "usage: $0 [--configure]" >&2; exit 2 ;;
+esac
+[ -f .env ] && load_env .env
+if [ -z "${SERVER_NAME:-}" ] || [ -z "${HOMESERVER_NETWORK:-}" ] || [ -z "${BRIDGE_ADMIN:-}" ]; then
+  if [ -t 0 ]; then
+    ./configure.sh
+    load_env .env
+  else
+    echo "error: .env needs SERVER_NAME, HOMESERVER_NETWORK and BRIDGE_ADMIN (run ./configure.sh, or see .env.example)" >&2
+    exit 1
+  fi
+fi
 HOMESERVER_URL="${HOMESERVER_URL:-http://synapse:8008}"
 BRIDGE_USERS="${BRIDGE_USERS:-$SERVER_NAME}"
 DATABASE_URI="${DATABASE_URI:-}"
@@ -116,5 +109,11 @@ fi
 echo "==> starting the bridge"
 docker compose up -d
 
-echo "==> done. If the homeserver does not know the registration yet, register it"
-echo "    (README.md) and restart the homeserver; then message @linebot:$SERVER_NAME"
+echo "==> done. Next:"
+if [ -n "${REGISTRATION_DIR:-}" ]; then
+  echo "    - make sure the homeserver lists $REGISTRATION_DIR/beeper-line.yaml"
+  echo "      (for Synapse: app_service_config_files; koto does it in scripts/init.sh)"
+else
+  echo "    - give data/registration.yaml to the homeserver (README.md)"
+fi
+echo "    - restart the homeserver, then message @linebot:$SERVER_NAME and send: login"

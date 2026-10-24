@@ -36,12 +36,18 @@ rooms, in any Matrix client.
 
 ```sh
 git clone <this repository> beeper-line && cd beeper-line
-cp .env.example .env
-$EDITOR .env
 ./setup.sh
 ```
 
-In `.env`:
+`setup.sh` asks for the settings it needs (through `configure.sh`) and
+saves them in `.env`. When a Synapse container is running, it offers what
+it finds as defaults: the server name from its config, its network, its
+address there and the directory mounted at its `/data`. Press Enter to keep
+a default. Run `./setup.sh --configure` (or `./configure.sh`) to change
+them later, or write `.env` yourself from `.env.example`; without a
+terminal, `setup.sh` only reads `.env`.
+
+The settings:
 
 | Setting | |
 |---|---|
@@ -60,7 +66,7 @@ example and the settings above, generates the appservice registration
 bridge runs as so that `data/` stays yours (you on rootful Docker, container
 root on rootless Docker) and saves it in `.env`.
 
-Run it again after changing `.env`. The settings above are applied again;
+Run it again after changing the settings. The settings above are applied again;
 anything else you change in `data/config.yaml` is kept. The registration is
 generated only once, since it holds the tokens the homeserver and the bridge
 share; if you change `SERVER_NAME`, delete `data/registration.yaml`, run
@@ -82,7 +88,8 @@ The homeserver reaches the bridge at `http://beeper-line:29322` on
 #### With koto
 
 [koto](https://forgejo.genji1024.com/genji1024/koto) registers every file in
-its `data/synapse/appservices/`. In `.env`:
+its `data/synapse/appservices/`. With koto running, `configure.sh` offers
+these itself:
 
 ```sh
 HOMESERVER_URL=http://synapse:8008
@@ -133,6 +140,8 @@ SQLite, the database) and `.env`.
 - `compose.yaml`: the bridge, built from upstream at `BEEPER_LINE_REF`, on
   the homeserver's network
 - `setup.sh`: the setup above
+- `configure.sh`: the questions, writing `.env`
+- `lib.sh`: helpers both share
 - `.env.example`: the settings
 
 ## License
