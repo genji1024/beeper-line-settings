@@ -29,8 +29,11 @@ rooms, in any Matrix client.
 
 - A Matrix homeserver that supports application services (Synapse, for
   one), running in Docker on the same host, on a network the bridge can join
-- Docker with Compose v2 (rootful or rootless); building the image needs
-  BuildKit, which Compose v2 uses by default
+- Docker with Compose v2 (rootful or rootless) and the buildx plugin
+  (`docker buildx version`; Arch: `docker-buildx`, Debian/Ubuntu:
+  `docker-buildx-plugin`). Upstream's Dockerfile needs BuildKit, and without
+  buildx Compose falls back to the legacy builder, which fails with "the
+  --mount option requires BuildKit"
 
 ## Setup
 
