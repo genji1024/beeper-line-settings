@@ -108,6 +108,11 @@ app_service_config_files:
 The homeserver reaches the bridge at `http://beeper-line:29322` on
 `HOMESERVER_NETWORK`.
 
+Until the homeserver has restarted with the registration, the bridge exits
+and is restarted over and over, logging `The as_token was not accepted`.
+That is expected; after the restart it logs `Bridge started`
+(`docker compose logs beeper-line`).
+
 #### With koto
 
 [koto](https://forgejo.genji1024.com/genji1024/koto) registers every file in
@@ -146,6 +151,11 @@ From a Matrix client, start a chat with `@linebot:<SERVER_NAME>` and send
 `login`. Enter the LINE account's email address and password, then the PIN
 the bridge shows into the LINE app on your phone. `help` lists the other
 commands; `logout` ends the session.
+
+After logging in, the bridge brings in each chat's recent history: at most
+50 messages, and only what LINE's servers still return, which can be much
+less. Older history stays on your phone (back it up in the LINE app).
+Everything from then on is bridged.
 
 ## The image
 
