@@ -32,6 +32,13 @@ fi
 HOMESERVER_URL="${HOMESERVER_URL:-http://synapse:8008}"
 BRIDGE_USERS="${BRIDGE_USERS:-$SERVER_NAME}"
 DATABASE_URI="${DATABASE_URI:-}"
+# compose.yaml needs these; take what .env lacks from .env.example.
+BEEPER_LINE_REF="${BEEPER_LINE_REF:-$(sed -n 's/^BEEPER_LINE_REF=//p' .env.example)}"
+export BEEPER_LINE_REF
+case "${BEEPER_LINE_BUILD:-}" in
+  ''|source) ;;
+  *) echo "error: BEEPER_LINE_BUILD must be empty or source (got '$BEEPER_LINE_BUILD')" >&2; exit 1 ;;
+esac
 
 docker network inspect "$HOMESERVER_NETWORK" >/dev/null 2>&1 || {
   echo "error: Docker network $HOMESERVER_NETWORK does not exist (HOMESERVER_NETWORK in .env)" >&2
@@ -54,18 +61,26 @@ if [ -z "${BRIDGE_UID:-}" ] || [ -z "${BRIDGE_GID:-}" ]; then
 fi
 mkdir -p data
 
-# Upstream's Dockerfile needs BuildKit, which Compose uses only through the
-# buildx plugin; without it Compose falls back to the legacy builder, which
-# fails on RUN --mount.
-docker buildx version >/dev/null 2>&1 || {
-  echo "error: the Docker buildx plugin is missing; building the bridge needs it" >&2
-  echo "  install it (Arch: docker-buildx; Debian/Ubuntu: docker-buildx-plugin)," >&2
-  echo "  check with: docker buildx version, then run ./setup.sh again" >&2
-  exit 1
-}
-
-echo "==> building the bridge"
-docker compose build
+if [ "${BEEPER_LINE_BUILD:-}" = source ]; then
+  # Upstream's Dockerfile needs BuildKit, which Compose uses only through
+  # the buildx plugin; without it Compose falls back to the legacy builder,
+  # which fails on RUN --mount.
+  docker buildx version >/dev/null 2>&1 || {
+    echo "error: the Docker buildx plugin is missing; building the bridge needs it" >&2
+    echo "  install it (Arch: docker-buildx; Debian/Ubuntu: docker-buildx-plugin)," >&2
+    echo "  check with: docker buildx version, then run ./setup.sh again" >&2
+    exit 1
+  }
+  echo "==> building the bridge (needs more than 10 GB of memory, swap included)"
+  docker compose build
+else
+  echo "==> pulling the bridge image for beeper/line $BEEPER_LINE_REF"
+  docker compose pull || {
+    echo "error: could not pull the image; is there one for this BEEPER_LINE_REF?" >&2
+    echo "  set BEEPER_LINE_BUILD=source in .env to build it here instead" >&2
+    exit 1
+  }
+fi
 
 # Run the bridge binary, or yq (both in the image), as the bridge's user.
 run() {
@@ -117,7 +132,7 @@ if [ -n "${REGISTRATION_DIR:-}" ]; then
 fi
 
 echo "==> starting the bridge"
-docker compose up -d
+docker compose up -d --no-build
 
 echo "==> done. Next:"
 if [ -n "${REGISTRATION_DIR:-}" ]; then
