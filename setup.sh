@@ -33,7 +33,13 @@ HOMESERVER_URL="${HOMESERVER_URL:-http://synapse:8008}"
 BRIDGE_USERS="${BRIDGE_USERS:-$SERVER_NAME}"
 DATABASE_URI="${DATABASE_URI:-}"
 # compose.yaml needs these; take what .env lacks from .env.example.
-BEEPER_LINE_REF="${BEEPER_LINE_REF:-$(sed -n 's/^BEEPER_LINE_REF=//p' .env.example)}"
+# The release pins the upstream commit in .env.example; .env may override it.
+release_ref=$(sed -n 's/^BEEPER_LINE_REF=//p' .env.example)
+if [ -n "${BEEPER_LINE_REF:-}" ] && [ "$BEEPER_LINE_REF" != "$release_ref" ]; then
+  echo "==> note: .env pins beeper/line $BEEPER_LINE_REF; this release has $release_ref" >&2
+  echo "    (remove BEEPER_LINE_REF from .env to follow the releases)" >&2
+fi
+BEEPER_LINE_REF="${BEEPER_LINE_REF:-$release_ref}"
 export BEEPER_LINE_REF
 case "${BEEPER_LINE_BUILD:-}" in
   ''|source) ;;

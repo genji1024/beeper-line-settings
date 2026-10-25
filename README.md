@@ -37,9 +37,28 @@ rooms, in any Matrix client.
 ## Setup
 
 ```sh
-git clone <this repository> beeper-line && cd beeper-line
-./setup.sh
+curl -fsSL https://forgejo.genji1024.com/genji1024/beeper-line-settings/raw/branch/stable/install.sh | sh
 ```
+
+`install.sh` checks out the latest release into `~/beeper-line` and runs
+`setup.sh` there. To pin a release or choose the directory:
+
+```sh
+curl -fsSL https://forgejo.genji1024.com/genji1024/beeper-line-settings/raw/branch/stable/install.sh |
+  sh -s -- --version v0.1.0 --dir ~/beeper-line
+```
+
+To read it before running it:
+
+```sh
+curl -fsSLO https://forgejo.genji1024.com/genji1024/beeper-line-settings/raw/branch/stable/install.sh
+less install.sh
+sh install.sh
+```
+
+Without it: `git clone` this repository, `git checkout` a release tag and
+run `./setup.sh`. Releases are `vX.Y.Z` tags; `main` is development and
+may be broken at any time.
 
 `setup.sh` asks for the settings it needs (through `configure.sh`) and
 saves them in `.env`. When a Synapse container is running, it offers what
@@ -60,7 +79,7 @@ The settings:
 | `BRIDGE_ADMIN` | A user ID that administers the bridge |
 | `REGISTRATION_DIR` | Optional: where `setup.sh` copies the registration for the homeserver |
 | `DATABASE_URI` | Optional: a PostgreSQL URI; without it the bridge uses SQLite in `data/` |
-| `BEEPER_LINE_REF` | The upstream commit the bridge runs; the image is tagged with it |
+| `BEEPER_LINE_REF` | Optional: another upstream commit than the release's (below) |
 | `BEEPER_LINE_IMAGE` | Optional: where the image is pulled from; default `ghcr.io/genji1024/beeper-line` |
 | `BEEPER_LINE_BUILD` | Optional: `source` builds the image here instead of pulling it |
 
@@ -146,21 +165,43 @@ requires BuildKit".
 
 ## Upgrading
 
-Set `BEEPER_LINE_REF` to a newer upstream commit and run `./setup.sh`.
-Without `BEEPER_LINE_BUILD=source`, an image for that commit must exist:
-the ones this repository publishes are the commits its `.env.example` has
-pinned. Read upstream's README first: some versions ask you to reset the
+Run `install.sh` again (the same `curl ... | sh`, or `--version` for a
+given release). It moves the checkout to that release and runs `setup.sh`,
+keeping `.env` and `data/`. Each release pins the upstream commit in
+`.env.example`, so the bridge moves with it; read the release notes and
+upstream's README first, since some versions ask you to reset the
 configuration and log in again.
+
+To run another upstream commit than the release's, set `BEEPER_LINE_REF` in
+`.env`; `setup.sh` then says it differs from the release's, and you stay on
+it until you remove it. Without `BEEPER_LINE_BUILD=source`, an image for
+that commit must exist: this repository publishes the commits its
+`.env.example` has pinned.
 
 ## Backups
 
 Back up `data/` (the config with its tokens, the registration and, with
 SQLite, the database) and `.env`.
 
+## Releasing
+
+For maintainers:
+
+1. On `main`, make sure the image for `.env.example`'s `BEEPER_LINE_REF`
+   exists (the `image` workflow on GitHub has run for it).
+2. Tag the release and push the tag; tags are never moved or deleted:
+   `git tag -a vX.Y.Z -m vX.Y.Z && git push origin vX.Y.Z`
+3. Create a release for it on Forgejo, with notes (upstream changes, and
+   whether users must log in again). `install.sh` takes the latest one.
+4. Fast-forward `stable`, where the one-line install comes from, to the
+   tag: `git push origin vX.Y.Z^{commit}:refs/heads/stable`. Keep `stable`
+   protected so that only this moves it.
+
 ## Files
 
 - `compose.yaml`: the bridge at `BEEPER_LINE_REF`, on the homeserver's
   network
+- `install.sh`: installs or updates a release, then runs `setup.sh`
 - `setup.sh`: the setup above
 - `configure.sh`: the questions, writing `.env`
 - `lib.sh`: helpers both share

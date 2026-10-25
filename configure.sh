@@ -94,7 +94,8 @@ while :; do
 done
 
 echo "Bridge image" >&2
-BEEPER_LINE_REF="${BEEPER_LINE_REF:-$(sed -n 's/^BEEPER_LINE_REF=//p' .env.example)}"
+release_ref=$(sed -n 's/^BEEPER_LINE_REF=//p' .env.example)
+BEEPER_LINE_REF="${BEEPER_LINE_REF:-$release_ref}"
 d=n; [ "${BEEPER_LINE_BUILD:-}" = source ] && d=y
 while :; do
   ask build "  Build it here instead of downloading it? Needs over 10 GB of memory (y/n)" "$d"
@@ -129,6 +130,9 @@ umask 077
            REGISTRATION_DIR DATABASE_URI BEEPER_LINE_REF BEEPER_LINE_IMAGE BEEPER_LINE_BUILD \
            BRIDGE_UID BRIDGE_GID; do
     eval "v=\${$k:-}"
+    # The release's own commit stays out of .env, so that updating to a
+    # newer release moves the bridge too.
+    [ "$k" = BEEPER_LINE_REF ] && [ "$v" = "$release_ref" ] && v=
     if [ -n "$v" ]; then printf '%s=%s\n' "$k" "$v"; fi
   done
 } > .env.new
