@@ -1,9 +1,10 @@
-# A LINE bridge for a Matrix homeserver: https://github.com/beeper/line,
-# built from source. Run ./setup.sh first (README.md).
+# A LINE bridge for a Matrix homeserver: https://github.com/beeper/line.
+# Run ./setup.sh first (README.md). The image is the upstream commit
+# BEEPER_LINE_REF, pulled from BEEPER_LINE_IMAGE or built here from source.
 services:
   beeper-line:
-    build: https://github.com/beeper/line.git#${BEEPER_LINE_REF:-main}
-    image: beeper-line:local
+    build: https://github.com/beeper/line.git#${BEEPER_LINE_REF:?set BEEPER_LINE_REF in .env}
+    image: ${BEEPER_LINE_IMAGE:-ghcr.io/genji1024/beeper-line}:${BEEPER_LINE_REF}
     restart: unless-stopped
     environment:
       # The image's entrypoint runs the bridge as this user and gives it

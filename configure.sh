@@ -93,8 +93,19 @@ while :; do
   echo "  postgres://user:password@host/database?sslmode=disable, or empty" >&2
 done
 
+echo "Bridge image" >&2
 BEEPER_LINE_REF="${BEEPER_LINE_REF:-$(sed -n 's/^BEEPER_LINE_REF=//p' .env.example)}"
+d=n; [ "${BEEPER_LINE_BUILD:-}" = source ] && d=y
+while :; do
+  ask build "  Build it here instead of downloading it? Needs over 10 GB of memory (y/n)" "$d"
+  case "$build" in
+    y|Y|yes) BEEPER_LINE_BUILD=source; break ;;
+    n|N|no) BEEPER_LINE_BUILD=; break ;;
+  esac
+done
 
+image="${BEEPER_LINE_IMAGE:-ghcr.io/genji1024/beeper-line}:$BEEPER_LINE_REF"
+[ "${BEEPER_LINE_BUILD:-}" = source ] && image="built here from source"
 cat >&2 <<EOF
 
   SERVER_NAME        $SERVER_NAME
@@ -105,6 +116,7 @@ cat >&2 <<EOF
   REGISTRATION_DIR   ${REGISTRATION_DIR:-(none)}
   DATABASE_URI       ${DATABASE_URI:-(SQLite)}
   BEEPER_LINE_REF    $BEEPER_LINE_REF
+  image              $image
 
 EOF
 ask ok "Write these to .env? (y/n)" y
@@ -114,7 +126,8 @@ umask 077
 {
   echo "# Written by configure.sh; run it again to change these (see .env.example)."
   for k in SERVER_NAME HOMESERVER_NETWORK HOMESERVER_URL BRIDGE_USERS BRIDGE_ADMIN \
-           REGISTRATION_DIR DATABASE_URI BEEPER_LINE_REF BRIDGE_UID BRIDGE_GID; do
+           REGISTRATION_DIR DATABASE_URI BEEPER_LINE_REF BEEPER_LINE_IMAGE BEEPER_LINE_BUILD \
+           BRIDGE_UID BRIDGE_GID; do
     eval "v=\${$k:-}"
     if [ -n "$v" ]; then printf '%s=%s\n' "$k" "$v"; fi
   done

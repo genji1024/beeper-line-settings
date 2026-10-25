@@ -2,8 +2,9 @@
 
 Run [beeper/line](https://github.com/beeper/line), a bridge between Matrix
 and [LINE](https://line.me/), next to your own Matrix homeserver with Docker
-Compose. This repository holds only the deployment: the bridge is built from
-upstream's source at a pinned commit.
+Compose. This repository holds only the deployment: the bridge is
+upstream's, at a pinned commit, in an image this repository's CI builds
+from upstream's source.
 
 Each user of your homeserver who is allowed to use the bridge logs in with
 their own LINE account; their LINE chats and groups then appear as Matrix
@@ -29,11 +30,9 @@ rooms, in any Matrix client.
 
 - A Matrix homeserver that supports application services (Synapse, for
   one), running in Docker on the same host, on a network the bridge can join
-- Docker with Compose v2 (rootful or rootless) and the buildx plugin
-  (`docker buildx version`; Arch: `docker-buildx`, Debian/Ubuntu:
-  `docker-buildx-plugin`). Upstream's Dockerfile needs BuildKit, and without
-  buildx Compose falls back to the legacy builder, which fails with "the
-  --mount option requires BuildKit"
+- Docker with Compose v2 (rootful or rootless), on amd64
+- Only to build the image yourself (below): more than 10 GB of memory, swap
+  included, and the buildx plugin
 
 ## Setup
 
@@ -61,9 +60,11 @@ The settings:
 | `BRIDGE_ADMIN` | A user ID that administers the bridge |
 | `REGISTRATION_DIR` | Optional: where `setup.sh` copies the registration for the homeserver |
 | `DATABASE_URI` | Optional: a PostgreSQL URI; without it the bridge uses SQLite in `data/` |
-| `BEEPER_LINE_REF` | The upstream commit (or tag, or branch) to build |
+| `BEEPER_LINE_REF` | The upstream commit the bridge runs; the image is tagged with it |
+| `BEEPER_LINE_IMAGE` | Optional: where the image is pulled from; default `ghcr.io/genji1024/beeper-line` |
+| `BEEPER_LINE_BUILD` | Optional: `source` builds the image here instead of pulling it |
 
-`setup.sh` builds the image, writes `data/config.yaml` from upstream's
+`setup.sh` pulls the image, writes `data/config.yaml` from upstream's
 example and the settings above, generates the appservice registration
 (`data/registration.yaml`) and starts the bridge. It picks the user the
 bridge runs as so that `data/` stays yours (you on rootful Docker, container
@@ -127,11 +128,29 @@ From a Matrix client, start a chat with `@linebot:<SERVER_NAME>` and send
 the bridge shows into the LINE app on your phone. `help` lists the other
 commands; `logout` ends the session.
 
+## The image
+
+The image is upstream's own Dockerfile, built at `BEEPER_LINE_REF` by
+[`.github/workflows/image.yml`](.github/workflows/image.yml) on GitHub
+(this repository is mirrored there) and published as
+`ghcr.io/genji1024/beeper-line:<commit>`, for amd64. The workflow builds the
+commit in `.env.example` once, when it first reaches `main` or a release.
+
+To build it yourself instead, set `BEEPER_LINE_BUILD=source`. Compiling
+upstream's generated cryptography code takes more than 10 GB of memory: a
+4 GB server is killed by the kernel's OOM killer even with 8 GB of swap.
+The build also needs the buildx plugin (`docker buildx version`; Arch:
+`docker-buildx`, Debian/Ubuntu: `docker-buildx-plugin`); without it Compose
+falls back to the legacy builder, which fails with "the --mount option
+requires BuildKit".
+
 ## Upgrading
 
-Set `BEEPER_LINE_REF` to a newer upstream commit and run `./setup.sh` (or
-`docker compose up -d --build`). Read upstream's README first: some
-versions ask you to reset the configuration and log in again.
+Set `BEEPER_LINE_REF` to a newer upstream commit and run `./setup.sh`.
+Without `BEEPER_LINE_BUILD=source`, an image for that commit must exist:
+the ones this repository publishes are the commits its `.env.example` has
+pinned. Read upstream's README first: some versions ask you to reset the
+configuration and log in again.
 
 ## Backups
 
@@ -140,12 +159,13 @@ SQLite, the database) and `.env`.
 
 ## Files
 
-- `compose.yaml`: the bridge, built from upstream at `BEEPER_LINE_REF`, on
-  the homeserver's network
+- `compose.yaml`: the bridge at `BEEPER_LINE_REF`, on the homeserver's
+  network
 - `setup.sh`: the setup above
 - `configure.sh`: the questions, writing `.env`
 - `lib.sh`: helpers both share
 - `.env.example`: the settings
+- `.github/workflows/image.yml`: builds and publishes the image
 
 ## License
 
